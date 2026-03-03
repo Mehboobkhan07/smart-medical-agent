@@ -112,5 +112,4 @@ async def get_dashboard():
 async def check_drug_interaction(medicine1: str, medicine2: str):
     return await medical_agent.check_drug_interactions(medicine1, medicine2)
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
