@@ -1,8 +1,12 @@
 import axios from 'axios';
 
-const API = axios.create({ 
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api' 
+
+
+const API = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || "https://smart-medical-agent.onrender.com"
 });
+
+export default API;
 
 export const chatApi = (msg, patientId, sessionId) =>
   API.post('/chat', { message: msg, patient_id: patientId, session_id: sessionId });
