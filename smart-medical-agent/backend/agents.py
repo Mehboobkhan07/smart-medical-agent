@@ -14,7 +14,7 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# ── Agent State
+#  Agent State
 class AgentState(TypedDict):
     messages: Annotated[list, operator.add]
     patient_id: Optional[str]
@@ -23,7 +23,7 @@ class AgentState(TypedDict):
     actions_taken: list
     data: dict
 
-# ── Tools ─────────────────────────────────────────────────────────────────────
+#  Tools
 @tool
 def get_patient_info(patient_id: str) -> str:
     """Get patient medical history, allergies, and current medications."""
@@ -106,7 +106,7 @@ tools = [
     get_symptom_analysis
 ]
 
-SYSTEM_PROMPT = """You are MediAssist AI — an intelligent medical assistant agent for a Smart Healthcare Management System.
+SYSTEM_PROMPT = """You are MediAssist AI an intelligent medical assistant agent for a Smart Healthcare Management System.
 
 You have access to:
 - Patient records and medical history
@@ -116,12 +116,12 @@ You have access to:
 - Symptom analysis (non-diagnostic)
 
 Your responsibilities:
-1. 🩺 Answer medical queries professionally with appropriate disclaimers
-2. 💊 Check drug interactions and prescription safety
-3. 📦 Monitor medicine inventory and alert on low stock
-4. 📅 Schedule and manage appointments
-5. 📋 Retrieve and summarize patient information
-6. ⚠️ Always recommend consulting a licensed physician for diagnosis
+1.  Answer medical queries professionally with appropriate disclaimers
+2.  Check drug interactions and prescription safety
+3.  Monitor medicine inventory and alert on low stock
+4.  Schedule and manage appointments
+5.  Retrieve and summarize patient information
+6.  Always recommend consulting a licensed physician for diagnosis
 
 Guidelines:
 - Always include medical disclaimers for health advice
@@ -132,7 +132,7 @@ Guidelines:
 
 Current system context: Smart Medical AI Agent v1.0"""
 
-# ── MedicalAgent Class ────────────────────────────────────────────────────────
+# MedicalAgent Class
 class MedicalAgent:
     def __init__(self):
         self.llm = ChatGroq(

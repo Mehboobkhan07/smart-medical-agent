@@ -87,7 +87,7 @@ class Database:
         ]
         self.activity_log = activities
 
-    # ── Patient CRUD ──────────────────────────────────────────────────────────
+    #  Patient CRUD 
     def get_all_patients(self):
         return list(self.patients.values())
 
@@ -101,7 +101,7 @@ class Database:
         self.activity_log.insert(0, {"type": "patient", "message": f"New patient {patient_data.get('name')} registered", "time": "just now"})
         return patient_data
 
-    # ── Prescription CRUD ─────────────────────────────────────────────────────
+    #  Prescription CRUD 
     def get_all_prescriptions(self):
         return list(self.prescriptions.values())
 
@@ -117,7 +117,7 @@ class Database:
         self.activity_log.insert(0, {"type": "prescription", "message": f"New prescription for {name}", "time": "just now"})
         return rx_data
 
-    # ── Medicine CRUD ─────────────────────────────────────────────────────────
+    #  Medicine CRUD 
     def get_all_medicines(self):
         return list(self.medicines.values())
 
@@ -133,7 +133,7 @@ class Database:
             return self.medicines[medicine_id]
         return None
 
-    # ── Appointment CRUD ──────────────────────────────────────────────────────
+    # Appointment CRUD 
     def get_all_appointments(self):
         return list(self.appointments.values())
 
@@ -150,7 +150,7 @@ class Database:
         today = str(date.today())
         return [a for a in self.appointments.values() if a.get("date") == today]
 
-    # ── Analytics ─────────────────────────────────────────────────────────────
+    # Analytics
     def get_recent_activity(self):
         return self.activity_log[:10]
 

@@ -19,7 +19,7 @@ app.add_middleware(
 
 medical_agent = MedicalAgent()
 
-# ── Chat ──────────────────────────────────────────────────────────────────────
+# Chat 
 class ChatRequest(BaseModel):
     message: str
     patient_id: Optional[str] = None
@@ -36,7 +36,7 @@ async def chat(request: ChatRequest):
     result = await medical_agent.process(request.message, request.patient_id, request.session_id)
     return result
 
-# ── Patients ──────────────────────────────────────────────────────────────────
+# ── Patients
 @app.get("/api/patients")
 async def get_patients():
     return db.get_all_patients()
@@ -52,7 +52,7 @@ async def get_patient(patient_id: str):
 async def create_patient(patient: Patient):
     return db.create_patient(patient.dict())
 
-# ── Prescriptions ─────────────────────────────────────────────────────────────
+# ── Prescriptions
 @app.get("/api/prescriptions")
 async def get_prescriptions():
     return db.get_all_prescriptions()
@@ -69,7 +69,7 @@ async def create_prescription(prescription: Prescription):
 async def get_patient_prescriptions(patient_id: str):
     return db.get_prescriptions_by_patient(patient_id)
 
-# ── Medicines / Inventory ─────────────────────────────────────────────────────
+# ── Medicines / Inventory 
 @app.get("/api/medicines")
 async def get_medicines():
     return db.get_all_medicines()
@@ -86,7 +86,7 @@ async def update_stock(medicine_id: str, quantity: int):
 async def get_inventory_alerts():
     return await medical_agent.check_inventory_alerts()
 
-# ── Appointments ──────────────────────────────────────────────────────────────
+# ── Appointments 
 @app.get("/api/appointments")
 async def get_appointments():
     return db.get_all_appointments()
@@ -95,7 +95,7 @@ async def get_appointments():
 async def create_appointment(appointment: Appointment):
     return db.create_appointment(appointment.dict())
 
-# ── Analytics ─────────────────────────────────────────────────────────────────
+# ── Analytics
 @app.get("/api/analytics/dashboard")
 async def get_dashboard():
     return {
