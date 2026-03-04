@@ -16,17 +16,29 @@ const navItems = [
   { path: '/appointments', icon: '📅', label: 'Appointments', section: 'MANAGEMENT' },
 ];
 
-function Sidebar() {
+function Sidebar({ isOpen, onClose }) {
   let currentSection = '';
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
-        <div className="logo-mark">
-          <div className="logo-icon">🏥</div>
-          <div className="logo-text">
-            <h2>MediAssist</h2>
-            <span>AI Agent v1.0</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="logo-mark">
+            <div className="logo-icon">🏥</div>
+            <div className="logo-text">
+              <h2>MediAssist</h2>
+              <span>AI Agent v1.0</span>
+            </div>
           </div>
+          {/* Close button - mobile only */}
+          <button
+            onClick={onClose}
+            className="sidebar-close"
+            style={{
+              background: 'none', border: 'none',
+              color: '#64748b', fontSize: 20,
+              cursor: 'pointer', padding: 4,
+            }}
+          >✕</button>
         </div>
       </div>
       <nav className="sidebar-nav">
@@ -40,6 +52,7 @@ function Sidebar() {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                onClick={onClose}
               >
                 <span className="nav-icon">{item.icon}</span>
                 {item.label}
@@ -83,14 +96,30 @@ function Topbar() {
     </div>
   );
 }
-
 export default function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <BrowserRouter>
       <div className="app-layout">
-        <Sidebar />
+        {/* Overlay when sidebar open on mobile */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.5)',
+              zIndex: 998,
+              display: 'none',
+            }}
+            className="sidebar-overlay"
+          />
+        )}
+
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
         <div className="main-content">
-          <Topbar />
+          <Topbar onMenuClick={() => setSidebarOpen(v => !v)} />
           <div className="page-content">
             <Routes>
               <Route path="/" element={<Dashboard />} />
