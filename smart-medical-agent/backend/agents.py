@@ -1,5 +1,6 @@
 import os
 import json
+import httpx
 from typing import Optional, TypedDict, Annotated
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -22,60 +23,135 @@ class AgentState(TypedDict):
     agent_type: str
     actions_taken: list
     data: dict
-
-#  Tools
-@tool
-def get_patient_info(patient_id: str) -> str:
-    """Get patient medical history, allergies, and current medications."""
-    patient = db.get_patient(patient_id)
-    if patient:
-        return json.dumps(patient)
-    return "Patient not found"
-
 @tool
 def check_drug_interaction_tool(drug1: str, drug2: str) -> str:
-    """Check for potential interactions between two drugs."""
-    known_interactions = {
-        ("warfarin", "aspirin"): "HIGH RISK: Increased bleeding risk",
-        ("metformin", "alcohol"): "MODERATE: Risk of lactic acidosis",
-        ("lisinopril", "potassium"): "MODERATE: Hyperkalemia risk",
-        ("ssri", "maoi"): "CRITICAL: Serotonin syndrome risk",
-        ("ciprofloxacin", "antacid"): "LOW: Reduced absorption",
-    }
-    d1, d2 = drug1.lower(), drug2.lower()
-    for (k1, k2), v in known_interactions.items():
-        if (k1 in d1 and k2 in d2) or (k2 in d1 and k1 in d2):
-            return v
-    return f"No known critical interactions between {drug1} and {drug2}"
+    """Check real drug interactions using OpenFDA external API."""
+    try:
+        url = f"https://api.fda.gov/drug/label.json?search=drug_interactions:{drug1}&limit=1"
+        response = httpx.get(url, timeout=10)
+        data = response.json()
+        if "results" in data:
+            interactions = data["results"][0].get("drug_interactions", [""])[0]
+            if drug2.lower() in interactions.lower():
+                return f" WARNING: {drug1} and {drug2} interaction found: {interactions[:300]}"
+            return f" No critical interaction found between {drug1} and {drug2} in FDA database."
+        return f"No FDA data found for {drug1}."
+    except Exception as e:
+        # Fallback to known interactions
+        known = {
+            ("warfarin", "aspirin"): " HIGH RISK: Increased bleeding risk",
+            ("metformin", "alcohol"): " MODERATE: Risk of lactic acidosis",
+            ("ssri", "maoi"): "🚨 CRITICAL: Serotonin syndrome risk",
+        }
+        d1, d2 = drug1.lower(), drug2.lower()
+        for (k1, k2), v in known.items():
+            if (k1 in d1 and k2 in d2) or (k2 in d1 and k1 in d2):
+                return v
+        return f" No known critical interactions between {drug1} and {drug2}"
 
+#  Tool 2: RxNorm Medicine Info (REAL EXTERNAL API) 
 @tool
 def get_medicine_info(medicine_name: str) -> str:
-    """Get information about a medicine including dosage, side effects, and stock."""
-    medicines = db.get_all_medicines()
-    for med in medicines:
-        if medicine_name.lower() in med["name"].lower():
-            return json.dumps(med)
-    # Return general info from knowledge base
-    info = {
-        "name": medicine_name,
-        "general_info": f"General pharmacological information for {medicine_name}",
-        "note": "Consult a licensed physician for specific dosage recommendations"
-    }
-    return json.dumps(info)
+    """Get real medicine information from RxNorm API."""
+    try:
+        # Step 1 - Get RxCUI code
+        url = f"https://rxnav.nlm.nih.gov/REST/rxcui.json?name={medicine_name}&search=1"
+        res = httpx.get(url, timeout=10)
+        data = res.json()
+        rxcui = data.get("idGroup", {}).get("rxnormId", [None])[0]
+        if not rxcui:
+            return f"Medicine '{medicine_name}' not found in RxNorm database."
 
+        # Step 2 - Get properties
+        url2 = f"https://rxnav.nlm.nih.gov/REST/rxcui/{rxcui}/properties.json"
+        res2 = httpx.get(url2, timeout=10)
+        props = res2.json().get("properties", {})
+
+        name = props.get("name", medicine_name)
+        synonym = props.get("synonym", "")
+        drug_class = props.get("doseFormGroupName", "")
+
+        return f"💊 {name} — {synonym}\nClass: {drug_class}\nRxCUI: {rxcui}\nSource: RxNorm (NIH)"
+    except Exception:
+        # Fallback to local DB
+        medicines = db.get_all_medicines()
+        for med in medicines:
+            if medicine_name.lower() in med["name"].lower():
+                return json.dumps(med)
+        return f"Basic info: {medicine_name} is a commonly used medication. Consult physician for dosage."
+
+#  Tool 3: OpenFDA Medicine Search (REAL EXTERNAL API)
+@tool
+def search_medicine_fda(medicine_name: str) -> str:
+    """Search FDA database for medicine label, warnings and side effects."""
+    try:
+        url = f"https://api.fda.gov/drug/label.json?search=openfda.brand_name:{medicine_name}&limit=1"
+        res = httpx.get(url, timeout=10)
+        data = res.json()
+        if "results" in data:
+            result = data["results"][0]
+            warnings = result.get("warnings", ["No warnings listed"])[0][:300]
+            indications = result.get("indications_and_usage", ["Not available"])[0][:300]
+            return f"💊 FDA Info for {medicine_name}:\n Use: {indications}\n⚠️ Warning: {warnings}"
+        return f"No FDA label found for {medicine_name}"
+    except Exception:
+        return f"FDA API unavailable for {medicine_name}. Please consult a pharmacist."
+
+#  Tool 4: Open Disease Symptom API (REAL EXTERNAL API) 
+@tool
+def get_symptom_analysis(symptoms: str) -> str:
+    """Analyze symptoms using real medical API and suggest medicines from inventory."""
+    try:
+        # Use API Ninjas symptoms API
+        url = "https://api.api-ninjas.com/v1/symptomchecker"
+        headers = {"X-Api-Key": os.getenv("API_NINJAS_KEY", "")}
+        res = httpx.get(url, params={"symptoms": symptoms}, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            conditions = [d.get("name", "") for d in data[:3]]
+            result = f"🩺 Possible conditions: {', '.join(conditions)}"
+        else:
+            raise Exception("API unavailable")
+    except Exception:
+        # Smart fallback based on keywords
+        symptom_map = {
+            "headache": "Paracetamol 500mg or Ibuprofen. Rest and hydration recommended.",
+            "fever": "Paracetamol 500mg to reduce temperature. Monitor closely.",
+            "cold": "Rest, fluids, and Vitamin C. Antihistamines if congested.",
+            "cough": "Cough syrup or lozenges. Steam inhalation helps.",
+            "pain": "Paracetamol or Ibuprofen for pain relief.",
+            "diabetes": "Monitor blood sugar. Metformin if prescribed.",
+            "bp": "Lisinopril or Amlodipine. Reduce salt intake.",
+            "anxiety": "Deep breathing exercises. Consult doctor for medication.",
+        }
+        s = symptoms.lower()
+        for key, advice in symptom_map.items():
+            if key in s:
+                result = f"💊 For {symptoms}: {advice}"
+                break
+        else:
+            result = f"For {symptoms} — please consult a licensed physician for proper diagnosis."
+
+    # Always check inventory for relevant medicines
+    medicines = db.get_all_medicines()
+    available = [m["name"] for m in medicines if m["stock"] > 0]
+    return f"{result}\n\n📦 Available in stock: {', '.join(available[:4])}\n Always consult a doctor before taking medication."
+
+# Tool 5: Check Inventory (Internal but enhanced) 
 @tool
 def check_inventory(medicine_name: str) -> str:
-    """Check inventory levels for a specific medicine."""
+    """Check inventory levels and get real-time stock status."""
     medicines = db.get_all_medicines()
     for med in medicines:
         if medicine_name.lower() in med["name"].lower():
-            status = "LOW STOCK" if med["stock"] < med["min_stock"] else "ADEQUATE"
-            return f"{med['name']}: {med['stock']} units ({status})"
-    return f"{medicine_name} not found in inventory"
+            status = "🚨 OUT OF STOCK" if med["stock"] == 0 else "⚠️ LOW STOCK" if med["stock"] < med["min_stock"] else "✅ IN STOCK"
+            return f"{med['name']}: {med['stock']} units — {status} | Price: ₹{med['price']}"
+    return f"❌ {medicine_name} not found in inventory."
 
+# ── Tool 6: Schedule Appointment 
 @tool
 def schedule_appointment(patient_id: str, doctor: str, date: str, reason: str) -> str:
-    """Schedule a medical appointment for a patient."""
+    """Schedule a medical appointment."""
     appointment = db.create_appointment({
         "patient_id": patient_id,
         "doctor": doctor,
@@ -83,27 +159,25 @@ def schedule_appointment(patient_id: str, doctor: str, date: str, reason: str) -
         "reason": reason,
         "status": "scheduled"
     })
-    return f"Appointment scheduled successfully. ID: {appointment['id']}"
+    return f" Appointment confirmed! ID: {appointment['id']} | {doctor} on {date} for {reason}"
 
+# Tool 7: Get Patient Info 
 @tool
-def get_symptom_analysis(symptoms: str) -> str:
-    """Analyze symptoms and suggest possible conditions (NOT a diagnosis)."""
-    return f"""Symptom analysis for: {symptoms}
-    
-    IMPORTANT DISCLAIMER: This is NOT a medical diagnosis. 
-    Always consult a qualified healthcare professional.
-    
-    General guidance: Based on described symptoms, please seek immediate medical attention 
-    if you experience severe chest pain, difficulty breathing, or loss of consciousness.
-    For non-emergency symptoms, schedule an appointment with your doctor."""
+def get_patient_info(patient_id: str) -> str:
+    """Get patient medical history, allergies and current medications."""
+    patient = db.get_patient(patient_id)
+    if patient:
+        return json.dumps(patient)
+    return "Patient not found in records."
 
 tools = [
     get_patient_info,
     check_drug_interaction_tool,
     get_medicine_info,
+    search_medicine_fda,
     check_inventory,
     schedule_appointment,
-    get_symptom_analysis
+    get_symptom_analysis,
 ]
 
 SYSTEM_PROMPT = """You are MediAssist AI a smart pharmacy and medical assistant.
