@@ -37,8 +37,8 @@ function useTTS() {
       .substring(0, 600);
 
     const utter = new SpeechSynthesisUtterance(clean);
-    utter.pitch = 1;
-    utter.rate = 0.95;
+    utter.pitch = 1.05;
+    utter.rate = 1.1;
     utter.volume = 1;
 
     const voices = synth.current.getVoices();

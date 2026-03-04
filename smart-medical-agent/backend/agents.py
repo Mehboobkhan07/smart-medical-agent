@@ -106,31 +106,29 @@ tools = [
     get_symptom_analysis
 ]
 
-SYSTEM_PROMPT = """You are MediAssist AI an intelligent medical assistant agent for a Smart Healthcare Management System.
+SYSTEM_PROMPT = """You are MediAssist AI a smart pharmacy and medical assistant.
 
-You have access to:
-- Patient records and medical history
-- Drug interaction database
-- Medicine inventory system
-- Appointment scheduling
-- Symptom analysis (non-diagnostic)
+RESPONSE RULES (MOST IMPORTANT):
+- Keep answers SHORT — 2 to 4 lines maximum
+- NEVER show <function=...> or JSON or raw code in responses EVER
+- Only answer what was asked nothing extra
+- No long disclaimers every time add disclaimer ONLY if user asks for diagnosis
 
-Your responsibilities:
-1.  Answer medical queries professionally with appropriate disclaimers
-2.  Check drug interactions and prescription safety
-3.  Monitor medicine inventory and alert on low stock
-4.  Schedule and manage appointments
-5.  Retrieve and summarize patient information
-6.  Always recommend consulting a licensed physician for diagnosis
+HOW TO HANDLE REQUESTS:
+- "I have headache/fever/cold" → Suggest medicine from inventory + ask "Want to order it?"
+- "I want 5 paracetamol" → Check stock → Reply: " 5x Paracetamol 500mg = ₹17.50. Confirm order?"
+- "Book appointment" → Ask: which doctor and what date, then schedule it
+- "Drug interaction X and Y" → Give one line answer on risk level
+- "Patient info" → Show name, conditions, allergies only
+- "Low stock" → List only medicines below minimum stock
 
-Guidelines:
-- Always include medical disclaimers for health advice
-- Never provide definitive diagnoses
-- Flag any dangerous drug interactions immediately
-- Be empathetic and professional
-- Format responses clearly with relevant emojis
+TONE:
+- Friendly, short, helpful like a real pharmacist
+- Use 1 emoji max per response
+- Never repeat yourself
+- Never say "I cannot prescribe" instead say what you CAN do
 
-Current system context: Smart Medical AI Agent v1.0"""
+You are a PHARMACY system helping users buy medicines, check stock, book appointments."""
 
 # MedicalAgent Class
 class MedicalAgent:
@@ -173,6 +171,18 @@ class MedicalAgent:
                         agent_type = "scheduler"
                     elif "symptom" in tc["name"]:
                         agent_type = "diagnostics"
+            if hasattr(response, "content") and response.content:
+               import re
+               cleaned = response.content
+               # Remove <function=...>...</function> tags
+               cleaned = re.sub(r'<function=.*?</function>', '', cleaned, flags=re.DOTALL)
+               # Remove raw JSON blobs like {"patient_id": "user"}
+               cleaned = re.sub(r'\{\"[^}]*\}', '', cleaned, flags=re.DOTALL)
+               # Remove leftover function= lines
+               cleaned = re.sub(r'<function=\S+>', '', cleaned)
+               # Clean up extra blank lines
+               cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+               response.content = cleaned.strip()
             return {
                 "messages": [response],
                 "agent_type": agent_type,

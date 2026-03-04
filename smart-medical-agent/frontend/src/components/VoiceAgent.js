@@ -2,12 +2,12 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { chatApi } from '../utils/api';
 
 const AGENT_VOICES = {
-  general: { pitch: 1, rate: 0.95, name: 'general' },
-  pharmacist: { pitch: 0.9, rate: 0.9, name: 'pharmacist' },
-  records: { pitch: 1.05, rate: 1, name: 'records' },
-  inventory: { pitch: 0.95, rate: 1, name: 'inventory' },
-  scheduler: { pitch: 1.1, rate: 1, name: 'scheduler' },
-  diagnostics: { pitch: 0.85, rate: 0.9, name: 'diagnostics' },
+  general:     { pitch: 1.1,  rate: 1.2, name: 'general' },
+  pharmacist:  { pitch: 1.0,  rate: 1.2, name: 'pharmacist' },
+  records:     { pitch: 1.1,  rate: 1.2, name: 'records' },
+  inventory:   { pitch: 1.0,  rate: 1.2, name: 'inventory' },
+  scheduler:   { pitch: 1.1,  rate: 1.2, name: 'scheduler' },
+  diagnostics: { pitch: 1.0,  rate: 1.2, name: 'diagnostics' },
 };
 
 export default function VoiceAgent({ onClose }) {
@@ -92,6 +92,8 @@ export default function VoiceAgent({ onClose }) {
     utterance.pitch = voiceConfig.pitch;
     utterance.rate = voiceConfig.rate;
     utterance.volume = 1;
+    utterance.rate = 1.2;  
+    utterance.pitch = 1.1;
 
     // Try to pick a good voice
     const voices = synthRef.current.getVoices();
@@ -122,7 +124,7 @@ export default function VoiceAgent({ onClose }) {
         .replace(/`(.*?)`/g, '$1')
         .replace(/\n+/g, '. ')
         .replace(/[•\-]\s/g, '')
-        .substring(0, 500); // Limit TTS length
+        .substring(0, 250); // Limit TTS length
 
       setResponse(aiText);
       setAgentType(type);
@@ -350,7 +352,7 @@ export default function VoiceAgent({ onClose }) {
 
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#ef4444', width: '100%', textAlign: 'center' }}>
-              ⚠️ {error}
+             {error}
             </div>
           )}
         </div>
